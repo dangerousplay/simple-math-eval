@@ -61,6 +61,7 @@ class TokenType(enum.Enum):
     R_PARAM = ("RPARAM", "\\)")
     NEW_LINE = ("NEW_LINE", "\n")
     MULT = ("MULT", "\\*")
+    POW = ("POW", "\\^")
     SUM = ("SUM", "\\+")
     SUBTRACT = ("SUB", "-")
     DIVIDE = ("DIV", "/")
@@ -179,16 +180,31 @@ class MathParser:
         return number
 
     def _t_(self):
-        number = self._f_()
+        number = self._te_()
         token = self._next_()
 
         while token is not None:
             if token.token_type == TokenType.DIVIDE:
-                second = self._f_()
+                second = self._te_()
                 number /= second
             elif token.token_type == TokenType.MULT:
-                second = self._f_()
+                second = self._te_()
                 number *= second
+            else:
+                self._poke_()
+                break
+
+            token = self._next_()
+
+        return number
+
+    def _te_(self):
+        number = self._f_()
+        token = self._next_()
+        while token is not None:
+            if token.token_type == TokenType.POW:
+                second = self._f_()
+                number = pow(number, second) 
             else:
                 self._poke_()
                 break
@@ -233,7 +249,7 @@ class MathParser:
             variable = self.variables.get(token.value)
 
             if variable is None:
-                self._raise_exception_(f"not found variable with name '{variable}'")
+                self._raise_exception_(f"not found variable with name '{token.value}'")
 
             return variable
 

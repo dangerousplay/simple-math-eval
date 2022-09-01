@@ -53,6 +53,21 @@ class ParserTestSpec(unittest.TestCase):
 
     @unpack
     @data(
+        {'expression': '2 ^ 2', 'expected': 4},
+        {'expression': '2 * 2 ^ 3', 'expected': 16},
+        {'expression': '2 ^ 3 * 2', 'expected': 16},
+        {'expression': '2 + (2 ^ 3)', 'expected': 10},
+        {'expression': '2 ^ 0', 'expected': 1},
+        {'expression': '0 ^ 2', 'expected': 0},
+    )
+    def test_exponential_function(self, expression, expected):
+        p = MathParser()
+        result = p.parse(expression)
+
+        self.assertEqual(result, expected)        
+
+    @unpack
+    @data(
         {'expression': 'a = log2(1 + 1)', 'expected': {'a': 1}},
         {'expression': 'b = sqrt(2 * 2)', 'expected': {'b': 2}},
         {'expression': 'b = sqrt(4 * 4) \n a = sqrt(b)', 'expected': {'b': 4, 'a': 2}},

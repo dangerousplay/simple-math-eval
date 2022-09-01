@@ -30,7 +30,7 @@ The following operations are supported:
 
 - [x] Sum, subtract
 - [x] Division, multiplication
-- [ ] Pow, exponential
+- [x] Pow, exponential
 - [x] Variables, identifiers
 
 ## Grammar
@@ -40,7 +40,8 @@ The context-free grammar used to create the parser.
 ```
 # EA -> E | ASSIGN (NEW_LINE EA)*
 # E -> T (S T)*
-# T -> F (MDIV F)*
+# T -> TE (MDIV TE)* 
+# TE -> F (^ F)*
 # FU -> FUNCTION ( E )
 # ASSIGN -> IDENTIFIER EQUAL E
 # F -> ( E )
