@@ -2,6 +2,7 @@ import enum
 import math
 import re
 import sys
+from typing import Optional
 
 
 class ParserException(Exception):
@@ -55,7 +56,6 @@ def generate_tokens(text: str):
 
 class TokenType(enum.Enum):
     NUMBER = ("NUMBER", "[+-]?([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(e[0-9]+)?")
-    FUNCTION = ("FUNCTION", "[a-zA-Z][a-zA-Z0-9]+( )*\\(")
     IDENTIFIER = ("IDENTIFIER", "[a-zA-Z_]+([a-zA-Z0-9_])*")
     L_PARAM = ("LPARAM", "\\(")
     R_PARAM = ("RPARAM", "\\)")
@@ -71,7 +71,7 @@ class TokenType(enum.Enum):
 
 class Token:
     token_type: TokenType
-    value: object
+    value: any
     pos: int
     line: int
 
@@ -85,18 +85,46 @@ class Token:
         return f"TokenType: {self.token_type} Value: {self.value} Position: {self.pos} Line: {self.line}"
 
 
+class SymbolType(enum.Enum):
+    FUNCTION = "FUNCTION"
+    VARIABLE = "VARIABLE"
+
+
+class Symbol:
+    line_declaration: Optional[int]
+    line_usage: Optional[int]
+    typ: SymbolType
+    value: object
+
+    def __init__(self, typ, value, line_declaration=None, line_usage=None):
+        self.typ = typ
+        self.value = value
+        self.line_declaration = line_declaration
+        self.line_usage = line_usage
+
+
+def create_symbol_table():
+    symbol_table = {}
+
+    for name, function in functions_supported.items():
+        symbol_table[name] = Symbol(value=function, typ=SymbolType.FUNCTION)
+
+    return symbol_table
+
+
 class MathParser:
     text: str
     _current_line_: int
     _index_: int
-    variables: dict[str, float]
+
+    symbol_table: dict[str, Symbol]
 
     def __init__(self):
         self._tokens_ = None
         self.cache = []
         self._index_ = -1
         self._current_line_ = 1
-        self.variables = {}
+        self.symbol_table = create_symbol_table()
 
     def _next_(self):
         try:
@@ -139,6 +167,13 @@ class MathParser:
         self.cache = []
         self._index_ = -1
 
+    @property
+    def variables(self):
+        variables = filter(lambda t: t[1].typ == SymbolType.VARIABLE, self.symbol_table.items())
+        variables = map(lambda t: (t[0], t[1].value), variables)
+
+        return dict(list(variables))
+
     def parse(self, text: str):
         self.text = text
         self._tokens_ = generate_tokens(text)
@@ -171,6 +206,10 @@ class MathParser:
             elif token.token_type == TokenType.SUBTRACT:
                 second = self._t_()
                 number -= second
+            elif token.token_type == TokenType.NUMBER:
+                self._poke_()
+                second = self._t_()
+                number += second
             else:
                 self._poke_()
                 break
@@ -214,13 +253,22 @@ class MathParser:
         return number
 
     def _fu_(self):
-        token = self._expect_next(TokenType.FUNCTION)
+        token = self._expect_next(TokenType.IDENTIFIER)
+        self._expect_next(TokenType.L_PARAM)
 
         number = self._e_()
 
         self._expect_next(TokenType.R_PARAM)
 
-        function_name = token.value[:-1]
+        function_name = token.value
+
+        symbol = self.symbol_table.get(function_name)
+
+        if symbol is None:
+            self._raise_exception_(f"not found function with name: {function_name}")
+
+        if symbol.typ != SymbolType.FUNCTION:
+            self._raise_exception_(f"Expected function found {symbol.typ} that was declared on {symbol.line_declaration}")
 
         function = functions_supported[function_name]
 
@@ -242,16 +290,22 @@ class MathParser:
             return result
         elif token.token_type == TokenType.NUMBER:
             return float(token.value)
-        elif token.token_type == TokenType.FUNCTION:
-            self._poke_()
-            return self._fu_()
         elif token.token_type == TokenType.IDENTIFIER:
-            variable = self.variables.get(token.value)
+            next_token = self._peek_()
 
-            if variable is None:
+            if next_token is not None and next_token.token_type == TokenType.L_PARAM:
+                self._poke_()
+                return self._fu_()
+
+            symbol = self.symbol_table.get(token.value)
+
+            if symbol is None:
                 self._raise_exception_(f"not found variable with name '{token.value}'")
 
-            return variable
+            if symbol.typ != SymbolType.VARIABLE:
+                self._raise_exception_(f"expected VARIABLE found '{symbol.typ}' with name '{token.value}'")
+
+            return symbol.value
 
         self._unexpected_(token)
 
@@ -262,9 +316,18 @@ class MathParser:
 
         result = self._e_()
 
-        self.variables[identifier_token.value] = result
+        symbol = self.symbol_table.get(identifier_token.value)
 
-    def _expect_next(self, token_type: TokenType):
+        if symbol is not None and symbol.typ != SymbolType.VARIABLE:
+            self._raise_exception_(f"Can't create a variable with the name of a function: {identifier_token.value}")
+
+        self.symbol_table[identifier_token.value] = Symbol(
+            typ=SymbolType.VARIABLE,
+            value=result,
+            line_declaration=identifier_token.line
+        )
+
+    def _expect_next(self, token_type: TokenType) -> Token:
         token = self._next_()
 
         if token is None:

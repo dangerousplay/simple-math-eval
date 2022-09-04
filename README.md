@@ -30,6 +30,7 @@ The following operations are supported:
 
 - [x] Sum, subtract
 - [x] Division, multiplication
+- [x] Simple math functions, `sin`, `log2`, 'tan', 'cos', 'sqrt'
 - [x] Pow, exponential
 - [x] Variables, identifiers
 
