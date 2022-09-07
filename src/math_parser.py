@@ -4,6 +4,7 @@ import re
 import sys
 from typing import Optional
 
+SUM_SUBTRACT_SIGN = ['-', '+']
 
 class ParserException(Exception):
     line: int
@@ -126,7 +127,7 @@ class MathParser:
         self._current_line_ = 1
         self.symbol_table = create_symbol_table()
 
-    def _next_(self):
+    def _next_(self) -> Optional[Token]:
         try:
             self._current_token_ = next(self._tokens_)
             self.cache.append(self._current_token_)
@@ -207,6 +208,11 @@ class MathParser:
                 second = self._t_()
                 number -= second
             elif token.token_type == TokenType.NUMBER:
+                sign = token.value[0]
+
+                if sign not in SUM_SUBTRACT_SIGN:
+                    self._unexpected_(token)
+
                 self._poke_()
                 second = self._t_()
                 number += second

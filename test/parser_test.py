@@ -97,6 +97,8 @@ class ParserTestSpec(unittest.TestCase):
         {'expression': '+'},
         {'expression': '-'},
         {'expression': '1 + ( 2'},
+        {'expression': '1 1'},
+        {'expression': '3 3'},
     )
     def test_unexpected_token(self, expression):
         p = MathParser()
